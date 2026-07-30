@@ -1,39 +1,35 @@
-# هوية الـ Agent + العقد التقني الإلزامي لفيديوهات القرآن الكريم
+# AGENTS.md — سلوك الوكيل (Agent) والعقد التقني الإلزامي لفيديوهات القرآن الكريم
 
-هذا الملف هو كل اللي محتاجه الـ Agent قبل ما يبدأ أي مهمة. فيه هوية الـ Agent
-نفسه وطريقة تعامله العامة، وفيه أيضًا **العقد التقني الحرفي** اللي لازم يلتزم بيه
-كل ملف `scene.html` تكتبه، وسكريبت الرندر اللي هتكتبه إنت بنفسك (Playwright) عشان
-يشتغل من غير أخطاء من أول محاولة.
-
-> ⚠️ **تنبيه حاسم**: `agent.js` **مفيهوش أي subcommand اسمه "render"**. الأداة
-> الوحيدة المتاحة ليك هي `run_terminal` بس. **ممنوع منعًا باتًا تنفّذ "node agent.js"
-> (بأي شكل، بأي args) كأمر terminal من جوه جلستك** — ده مش أداة رندر، ده نفس
-> العقل اللي بيكلمك دلوقتي، وتشغيله هيبدأ جلسة Agent كاملة تانية من الصفر فوق
-> نفس الريبو ونفس الـ Release، وهيضيع تقدمك الحالي بالكامل. الرندر سكريبت
-> Node.js منفصل **إنت اللي بتكتبه** وتشغّله بـ `node اسم-السكريبت.js` — الوصفة
-> الكاملة والمُختبَرة موجودة في "دليل كتابة سكريبت الرندر" بالأسفل، انسخها زي
-> ما هي.
+هذا الملف هو كل اللي محتاجه الـ Agent قبل ما يبدأ أي مهمة. **مفيهوش أي تفاصيل عن الهوية
+البصرية لفيديو بعينه** — دي بقت في ملفات منفصلة جوه مجلد `identities/`، كل ملف بيوصف
+روح وهوية فيديو واحد. اللي هنا هو سلوك الوكيل نفسه: إزاي يلاقي الهوية المطلوبة قبل ما
+يبدأ، والعقد التقني الحرفي اللي لازم يلتزم بيه كل ملف `scene.html` تكتبه، بما في ذلك
+سكريبت الرندر نفسه — **لأنه مفيش أداة رندر جاهزة في agent.js، إنت اللي بتكتب وتشغل
+سكريبت الرندر بنفسك بالكامل في كل مهمة**.
 
 ---
 
-## القسم 1: هوية الـ Agent
+## القسم 1: هوية الفيديو — إزاي تلاقيها قبل ما تبدأ
 
-الـ Agent مسؤول عن إنتاج فيديوهات قرآنية (تلاوة، وأحيانًا مع تفسير مبسّط) بشكل
-كامل من الصفر: جلب النص والصوت من مصادر موثوقة، كتابة `scene.html` يلتزم بالعقد
-التقني في القسم 2، رندره، ثم رفعه على GitHub Release وتوثيقه.
+الهوية البصرية (الخطوط، الألوان، تخطيط المشهد، حركة ظهور النص، شكل بطاقة التفسير،
+وجود إطار أو شريط تقدم من عدمه... إلخ) **مش موجودة في الملف ده خالص**. كل فيديو
+له ملف `.md` منفصل جوه مجلد `identities/` بيوصف روحه وهويته بالكلام، مش بالكود.
 
-### هوية الفيديو (الشكل والروح البصرية) — منفصلة عن هذا الملف
-هوية كل فيديو (الخطوط، الألوان، التخطيط، الإحساس العام) **مش موجودة هنا**، وموجودة
-بدل كده في ملفات `.md` منفصلة جوه مجلد [`video-identities/`](./video-identities/)،
-كل ملف يوصف روح فيديو معيّن.
+**قبل ما تكتب أي حرف كود، لازم تعمل الخطوات دي بالترتيب**:
 
-- **اسم ملف الهوية المطلوب يُحدَّد صراحة في وصف المهمة نفسها.** لو المهمة قالتلك
-  تستخدم هوية معيّنة (مثلًا `video-identities/quran-tafsir-shorts.md`)، افتحه واتبع
-  الوصف اللي فيه بالحرف قبل ما تكتب أي `scene.html`.
-- لو المهمة معدّتش أي اسم ملف هوية صراحة، متفترضش هوية من عندك — ارجع للمستخدم
-  واسأله أي ملف من `video-identities/` يستخدم.
-- ملفات الهوية دي وصف للشكل والإحساس (كلام، مش كود جاهز يُنسخ) — التزم بروحها في
-  كتابتك للـ `scene.html`، مش بنسخها حرفيًا.
+1. دوّر في نص المهمة المطلوبة على اسم ملف هوية محدد (مثلاً "استخدم هوية
+   `identities/xxx.md`" أو اسم صريح لأسلوب بعينه).
+2. لو مفيش اسم محدد مذكور في المهمة، استخدم `identities/default.md` كهوية افتراضية.
+3. اقرأ الملف اللي هتستخدمه فعليًا بأمر `cat identities/<اسم-الملف>.md` عن طريق
+   `run_terminal` — **كأول أمر terminal تنفذه في المهمة، قبل أي curl أو كتابة ملف** —
+   والتزم بكل تفاصيله لما تكتب `scene.html`.
+4. لو اسم الملف المطلوب مش موجود فعليًا جوه `identities/`، وقف واذكر المشكلة في ردك
+   النصي بدل ما تخمّن هوية من عندك أو تخترع وصف.
+
+**مهم جدًا**: ملفات `identities/*.md` بتوصف الشكل والحركة والإحساس العام بس. **العقد
+التقني في القسم 2 تحت ثابت ومُلزَم دايمًا بغض النظر عن أي هوية مختارة** — مفيش هوية
+تقدر "تلغي" استخدام Mediabunny، ولا عقد النتيجة `window.__ofoqStatus`، ولا قواعد
+القسم 3 و4.
 
 ---
 
@@ -87,32 +83,10 @@ const finalBuffer = output.target.buffer; // ArrayBuffer فيه ملف MP4 كا�
 لا يوجد export اسمه `VideoCodec` أو `AudioCodec` وقت التشغيل (هو TypeScript type بس) —
 **ممنوع تحاول تستورده أو "تكتشفه" بتجربة**، ده هيفشل دايمًا ومضيعة وقت.
 
-### الخلفية: تحميل حقيقي من Pixabay + احتياطي SVG
-- **الافتراضي**: صورة خلفية حقيقية تُجلب من API خارجي (مثل Pixabay) — **يتم تحميلها عن طريق
-  `curl` جوه `run_terminal` فقط**، مع مفتاح الـ API مقروء من `$PIXABAY_API_KEY` (متغير بيئة
-  سري، موجود بالفعل، ممنوع طباعته أو كتابته جوه أي ملف). احفظها محليًا في `assets/background.jpg`
-  (أو `.png` حسب نوع الملف الراجع)، وخلي `scene.html` يشير للمسار المحلي النسبي بس
-  (`assets/background.jpg`) — **ممنوع منعًا باتًا كتابة مفتاح الـ API جوه `scene.html`
-  نفسه أو جوه أي ملف تاني بيتكتب على القرص**، لأنه ممكن يترفع بالغلط على الـ Release.
-  مثال أمر التحميل (استخدم رابط بحث مناسب لمحتوى المهمة):
-  ```bash
-  curl -s "https://pixabay.com/api/?key=$PIXABAY_API_KEY&q=nature+landscape&image_type=photo&orientation=<horizontal أو vertical حسب الأبعاد>" \
-  | node -e "const d=JSON.parse(require('fs').readFileSync(0));console.log(d.hits[0].largeImageURL)" \
-  | xargs -I{} curl -sL -o assets/background.jpg {}
-  ```
-- **بديل احتياطي**: لو المفتاح غير متاح أو التحميل فشل، ارجع لخلفية SVG مرسومة جوه نفس
-  ملف الـ HTML (تدرجات + عناصر بسيطة). لو استخدمت SVG كصورة `<img>` (مش inline)، لازم
-  تحطه كـ data URI مع `encodeURIComponent` كامل للمحتوى (مش استبدال يدوي لبعض الحروف بس)
-  — أي `#` أو حرف خاص من غير encoding سليم بيكسر تحميل الصورة (`Failed to load SVG image`).
-- **قاعدة تجنّب "canvas tainted"**: لازم `scene.html` يتفتح دايمًا عن طريق سيرفر HTTP محلي
-  (زي اللي في وصفة الرندر تحت)، **مش** بمسار `file://` مباشر — وأي صورة بتترسم على الـ
-  canvas لازم تكون من نفس الأصل (نفس السيرفر المحلي) أو من مصدر تم تحميله محليًا بالفعل
-  عن طريق curl. خرق القاعدة دي بيدّي خطأ `VideoFrames can't be created from tainted sources`.
-  طبقة تعتيم (overlay) غامقة فوق أي خلفية حقيقية دايمًا إلزامية عشان النص يفضل واضح.
-
-### عقد النتيجة النهائية اللي سكريبت الرندر بتاعك لازم يلتزم بيه
-لازم سكريبت الرندر (الملف اللي هتكتبه إنت، مش أداة جاهزة) يضبط المتغيرات دي جوه
-صفحة `scene.html` نفسها بالظبط، عشان تقدر تراقبها من الـ Node script:
+### عقد النتيجة النهائية — إلزامي بالحرف
+سكريبت الرندر اللي هتكتبه إنت بنفسك (شوف الدليل الكامل تحت في "دليل كتابة سكريبت
+الرندر") هو اللي بيفتح `scene.html` في متصفح حقيقي وبيستنى قيمة `window.__ofoqStatus`
+اللي ملفك نفسه لازم يضبطها. لازم `scene.html` يضبط المتغيرات دي بالظبط:
 
 - في البداية: `window.__ofoqStatus = 'pending';`
 - عند النجاح:
@@ -127,86 +101,72 @@ const finalBuffer = output.target.buffer; // ArrayBuffer فيه ملف MP4 كا�
   window.__ofoqError = err.message;
 ```
 
-### دليل كتابة سكريبت الرندر — انسخه حرفيًا، محدّث وشغّال فعليًا
-اكتبه بأمر `run_terminal` (heredoc) في ملف زي `render-runner.js`، وشغّله بعد كده
-بأمر `run_terminal` تاني: `node render-runner.js`. **مهم**: workflow الـ CI بيثبّت
-قناة `chrome` بس (مش `chromium` الافتراضي) — لازم تحدد `channel: 'chrome'` صراحة
-في `launch()` وإلا الرندر هيفشل بـ "Executable doesn't exist".
+### دليل كتابة سكريبت الرندر — إلزامي، اتبعه بالحرف لتجنب أخطاء متكررة معروفة
+مفيش أداة رندر جاهزة. اكتب سكريبت Node.js (مثلاً `render_script.js`) بيعمل الآتي
+بالترتيب، وشغّله بأمر `node render_script.js` عن طريق `run_terminal`:
 
+1. **شغّل سيرفر HTTP محلي بسيط يقدّم مجلد الشغل** (بمكتبة `http` المدمجة في Node)،
+   وافتح `scene.html` عن طريق `http://localhost:<port>/scene.html`.
+   **ممنوع منعًا باتًا** تفتح الملف مباشرة بـ `file://` — أي `import` من نوع module
+   أو `fetch` جوه الصفحة هيفشل بخطأ `Failed to fetch` بسبب قيود CORS على بروتوكول
+   `file://` في Chromium. لازم سيرفر HTTP حقيقي ولو بسيط.
+
+2. **افتح المتصفح بقناة `chrome` تحديدًا**، مش الـ Chromium المدمج الافتراضي:
 ```js
-const { chromium } = require('playwright');
-const fs = require('fs');
-const path = require('path');
-const http = require('http');
-
-async function startServer() {
-  return new Promise((resolve) => {
-    const server = http.createServer((req, res) => {
-      const filePath = path.join(process.cwd(), decodeURIComponent(req.url.split('?')[0]));
-      fs.readFile(filePath, (err, data) => {
-        if (err) { res.writeHead(404); res.end(); return; }
-        res.writeHead(200);
-        res.end(data);
-      });
-    });
-    server.listen(0, () => resolve(server));
-  });
-}
-
-(async () => {
-  const server = await startServer();
-  const port = server.address().port;
-  const browser = await chromium.launch({ channel: 'chrome' }); // مطابق للقناة المثبّتة في الـ workflow
-  const page = await browser.newPage();
-
-  const consoleLogs = [];
-  const failedRequests = [];
-  page.on('console', (msg) => consoleLogs.push(`[${msg.type()}] ${msg.text()}`));
-  page.on('pageerror', (err) => consoleLogs.push(`[pageerror] ${err.message}`));
-  page.on('requestfailed', (req) => failedRequests.push(`${req.url()} — ${req.failure()?.errorText}`));
-  page.on('response', (res) => { if (res.status() >= 400) failedRequests.push(`${res.url()} — HTTP ${res.status()}`); });
-
-  await page.goto(`http://localhost:${port}/scene.html`);
-  await page.waitForFunction(() => window.__ofoqStatus === 'done' || window.__ofoqStatus === 'error', { timeout: 8 * 60 * 1000 });
-
-  const status = await page.evaluate(() => window.__ofoqStatus);
-  const result = { success: status === 'done', console_logs: consoleLogs.slice(-50), failed_requests: failedRequests };
-
-  if (status === 'done') {
-    const filename = await page.evaluate(() => window.__ofoqFilename);
-    const base64 = await page.evaluate(() => window.__ofoqBase64);
-    fs.writeFileSync(filename, Buffer.from(base64, 'base64'));
-    result.filename = filename;
-    result.size = fs.statSync(filename).size;
-  } else {
-    result.error = await page.evaluate(() => window.__ofoqError);
-  }
-
-  await browser.close();
-  server.close();
-  console.log(JSON.stringify(result)); // اقرأها من الـ output بتاع run_terminal مباشرة
-  process.exit(result.success ? 0 : 1);
-})();
+const browser = await chromium.launch({
+    headless: true,
+    channel: 'chrome',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+});
 ```
+   قناة `chrome` دي هي اللي فعليًا متثبتة في بيئة التشغيل (الـ workflow بيثبتها
+   مسبقًا). لو استخدمت `chromium.launch()` من غير `channel: 'chrome'`، هتاخد خطأ
+   `Executable doesn't exist` لأن ده متصفح تاني غير مثبت أصلًا، وهتضطر تثبته بنفسك
+   بأمر إضافي (`npx playwright install chromium`) وده بياخد وقت زيادة كل مرة من غير داعي.
 
-**استخدم `console_logs`/`failed_requests` مباشرة للتشخيص** — لو ملف صوت أو خط طلع 404
-هتلاقيه صريح في `failed_requests`.
+3. **راقب الصفحة أثناء التنفيذ** بتسجيل كل حاجة ممكن تحتاجها للتشخيص لو فشل الرندر:
+```js
+page.on('console', (msg) => console.log('PAGE LOG:', msg.text()));
+page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
+page.on('requestfailed', (req) => console.log('FAILED REQUEST:', req.url(), req.failure()?.errorText));
+```
+   دي بتعوّض غياب أي أداة رندر جاهزة كانت بترجع `console_logs`/`failed_requests`
+   تلقائيًا — دلوقتي إنت اللي لازم تطبعها بنفسك عشان تقدر تشخّص أي مشكلة من نفس
+   نتيجة الأمر اللي بيرجعلك.
 
-**قاعدة سرعة مهمة**: لو الرندر فشل، **صحّح نفس ملف `scene.html` مباشرة وأعد تشغيل
-`node render-runner.js`** — ممنوع تكتب ملفات اختبار منفصلة (زي `test_xxx.html`) لتجربة
-استيراد أو API، وممنوع منعًا باتًا تنفّذ `node agent.js` بأي شكل (راجع التنبيه الحاسم
-أول الملف). كل المعلومات اللي محتاجها موجودة في `console_logs`/`failed_requests` أو
-في القسم ده من `AGENTS.md` نفسه.
+4. **استنى قيمة `window.__ofoqStatus`** بـ polling (كل نص ثانية مثلاً) لحد ما تبقى
+   `'done'` أو `'error'`، بمهلة زمنية معقولة (مدة الفيديو المتوقعة + دقيقة أمان على الأقل).
+   لو `'error'`: اطبع `window.__ofoqError` واخرج بـ exit code غير صفري عشان الأمر
+   يترصد كفاشل ويوقفك تصلّح المشكلة، مش تكمل وكأن حاجة ماشية.
+   لو `'done'`: اقرأ `window.__ofoqFilename` و`window.__ofoqBase64`، فُك تشفير الـ base64،
+   واكتبه كملف MP4 حقيقي على القرص.
+
+5. **قفل السيرفر المحلي والمتصفح** في الآخر (جوه `finally`) عشان الأمر يخلص وميفضلش معلق.
+
+**قاعدة سرعة مهمة**: لو الرندر فشل (أي سبب)، **صحّح نفس ملف `scene.html` أو
+`render_script.js` مباشرة وأعد التشغيل** — ممنوع تكتب ملفات اختبار منفصلة
+(زي `test_xxx.html` أو `try2.js`) لتجربة استيراد أو API، ده بيضيع وقت وأدوار من
+غير داعي. كل المعلومات اللي محتاجها للتشخيص لازم تكون موجودة في الـ output اللي
+سكريبت الرندر نفسه بيطبعه (خطوة 3 فوق).
+
+### التحقق الذاتي قبل اعتبار أي فيديو جاهز — **مسؤوليتك الكاملة، مفيش فحص تلقائي بالكود**
+مفيش أي كود بيتحقق تلقائيًا من `scene.html` قبل ما ترفعه. **إنت لازم تتحقق بنفسك**
+بأمر `run_terminal` بسيط قبل ما تعتبر أي فيديو جاهز للرفع:
+- تأكد إن فيه نص عربي حقيقي جوه الملف (مش placeholder ولا فاضي): `grep -c '[ء-ي]' scene.html`
+  — لو النتيجة صفر أو رقم صغير غير منطقي، النص الحقيقي اللي جبته بـ curl مكتبش
+  فعليًا جوه الملف، ارجع صحّح المشكلة قبل ما تكمل.
+- تأكد إن الملف فعلًا بيستورد `mediabunny`: `grep -c mediabunny scene.html`.
+- لو أي شرط منهم فشل، **ممنوع ترفع الفيديو أو تكتب ملف علامة `video_..._done.json`**،
+  صحّح المشكلة الأول.
 
 ### ملفات العلامة (Marker Files) — إلزامية لتتبع التقدم
-- بعد ما ترفع فيديو وملف وصفه فعليًا على الـ Release (بأمر `gh release upload` حقيقي
-  ناجح، مش افتراض)، اكتب: `video_<رقم السورة>_done.json` يحتوي
-  `{"surah": <رقم>, "release_video_url": "...", "release_md_url": "..."}`.
-  **`agent.js` بيتحقق فعليًا** إن اسمَي الملفين في الرابطين دول موجودين حقًا كـ assets
-  على الـ Release عن طريق `gh release view` قبل ما يقبل ملف العلامة ده — لو مش موجودين
-  هيرفضه برسالة توضح إيه الناقص، فتأكد إن الرفع حصل فعلًا الأول.
+- بعد رفع فيديو وملف وصفه بنجاح على الـ Release، اكتب:
+  `video_<رقم السورة>_done.json` يحتوي `{"surah": <رقم>, "release_video_url": "...", "release_md_url": "..."}`
+  **وبعدها مباشرة، اكتب رد نصي عادي (Reflexion)** يقيّم اللي حصل قبل ما تكمل لفيديو
+  تاني — ده التزام سلوكي عليك إنت، مفيش كود بيراقبه أو بيجبرك عليه.
 - بعد انتهاء **كل** الفيديوهات المطلوبة في المهمة، اكتب:
-  `TASK_COMPLETE.json` يحتوي `{"summary": "...", "videos": [...]}`
+  `TASK_COMPLETE.json` يحتوي `{"summary": "...", "videos": [...]}` — ده الملف الوحيد
+  اللي agent.js بيتحقق من وجوده عشان يعرف يوقف وينهي التنفيذ.
 
 ---
 
@@ -227,32 +187,30 @@ async function startServer() {
 
 3. **متغيرات البيئة `$RELEASE_TAG` و`$GH_REPO`**: متاحين فعليًا الآن في أي أمر
    `run_terminal` (تم إصلاح باگ سابق كانوا فيه فاضيين). لو لأي سبب طلعوا فاضيين برضه،
-   استخدم `gh repo view` و`gh release list --repo <name>` لمعرفة القيم الصحيحة يدويًا
+   استخدم `gh repo view` و`gh release list --repo <n>` لمعرفة القيم الصحيحة يدويًا
    كخطة بديلة، بدل ما توقف.
 
 4. **تحقق دايمًا من أي ملف نزّلته قبل ما تفترض إنه صح** — سواء صوت أو JSON أو صورة —
    بأمر بسيط زي `ls -la` أو `head -c 200 <file>`. عادة أرخص بكتير من اكتشاف المشكلة
    بعد خطوات كتير.
 
-5. **ممنوع منعًا باتًا تنفيذ `node agent.js` كأمر terminal من جوه جلستك، بأي args**.
-   حصل فعليًا مرة إن الـ Agent نفّذه ظنًا إنه أداة رندر جاهزة، فبدأ جلسة Agent كاملة
-   تانية من الصفر فوق نفس الريبو، اختارت سورة عشوائية مختلفة، وملفات العلامة اللي
-   كتبتها خدعت الجلسة الأصلية إنها هي اللي خلصت — والفيديو الأصلي المطلوب اتلغى
-   بصمت. الرندر دايمًا سكريبت منفصل تكتبه إنت (`render-runner.js` مثلًا) وتشغّله بـ
-   `node render-runner.js`.
+5. **متصفح الرندر**: استخدم `chromium.launch({ channel: 'chrome' })` دايمًا في سكريبت
+   الرندر — مرة سابقة استُخدم `chromium.launch()` العادي (Bundled Chromium)، وده
+   مش متثبت في بيئة التشغيل، فطلع خطأ `Executable doesn't exist` واضطر الأمر لتثبيت
+   متصفح إضافي بأمر منفصل (`npx playwright install chromium`) وده أخد وقت زيادة كل مرة.
 
-6. **فحص النص العربي في `scene.html` بيقبل حالتين بس**: إما متتالية 10 حروف عربية
-   متصلة بدون تاجات HTML بينها، أو إجمالي 40 حرف عربي على الأقل في كل الملف (بعد
-   تجاهل التاجات). لو فشل الفحص، الرسالة بترجعلك بالظبط طول أطول متتالية وإجمالي
-   العدد الحاليين — استخدمهم للتشخيص بدل التخمين العشوائي لسبب الفشل.
+6. **ممنوع فتح `scene.html` بـ `file://`**: مرة سابقة اتفتح الملف مباشرة كملف محلي،
+   فطلع `TypeError: Failed to fetch` بسبب قيود CORS على بروتوكول `file://` في Chromium.
+   لازم دايمًا سيرفر HTTP محلي بسيط (شوف "دليل كتابة سكريبت الرندر" فوق) قبل ما تفتح
+   الصفحة بالمتصفح.
 
-7. **الخلفية والصور لازم تتحمّل محليًا وتتفتح عن طريق سيرفر HTTP محلي، مش `file://`**
-   — وإلا الـ canvas بيبقى "tainted" ويفشل الرندر بـ `VideoFrames can't be created
-   from tainted sources`. راجع "دليل كتابة سكريبت الرندر" في القسم 2.
-
-8. **قناة المتصفح لازم تكون `chrome` صراحة** في `chromium.launch({ channel: 'chrome' })`
-   — لأن الـ workflow بيثبّت القناة دي بس (`npx playwright install --with-deps chrome`)،
-   مش الـ Chromium الافتراضي.
+7. **دمج أكتر من مقطع صوتي في `AudioBuffer` واحد**: مرة سابقة طلع `RangeError: offset
+   is out of bounds` عند دمج 3 ملفات صوت منفصلة للآيات. لو محتاج تدمجهم في buffer واحد
+   بنفسك (بدل ما تضيفهم كـ tracks منفصلة لـ `AudioBufferSource`)، تأكد إن طول كل
+   `Float32Array` والإزاحات (`offset`) بتاعت `.set()` متطابقة تمامًا مع الطول الفعلي
+   لكل قناة صوت قبل الدمج — أو الأبسط: ضيف كل مقطع صوتي بشكل منفصل عن طريق استدعاء
+   `audioSource.add(audioBuffer)` أكتر من مرة (Mediabunny بتلزقهم ورا بعض تلقائيًا،
+   زي الملاحظة في مثال الكود فوق) بدل ما تحاول تدمجهم يدويًا في buffer واحد.
 
 ---
 
