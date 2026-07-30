@@ -7,7 +7,9 @@
 // مفيهوش أي منطق محتوى أو رندر خالص — بس المحرك اللي بيشغّل الأداة الوحيدة.
 //
 // معمارية التفكير: Plan-and-Solve (خطة نصية كاملة قبل أول أمر) + Reflexion
-// (مراجعة نصية إلزامية بعد كل فيديو، عن طريق ملفات "علامة" بيراقبها agent.js).
+// (مراجعة نصية إلزامية بعد كل فيديو — دي بقت قاعدة سلوكية مكتوبة في AGENTS.md
+// والـ Agent نفسه مسؤول عن الالتزام بيها؛ agent.js بقى بس بيتأكد من وجود
+// TASK_COMPLETE.json عشان يعرف يوقف، من غير أي مراقبة أو فرض تاني من الكود).
 // ============================================================================
 
 const fs = require('fs');
@@ -26,7 +28,7 @@ function log(msg) {
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 // سلسلة نماذج احتياطية — التبديل تلقائي للي بعده لما نستنفد محاولات إعادة الاتصال
 // على النموذج الحالي. مرتبة من الأعلى قدرة للأكرم في حدود الخطة المجانية (RPM).
-const MODEL_CHAIN = (process.env.GEMINI_MODEL_CHAIN || 'gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.0-flash')
+const MODEL_CHAIN = (process.env.GEMINI_MODEL_CHAIN || 'gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash-lite')
   .split(',').map((s) => s.trim()).filter(Boolean);
 let currentModelIndex = 0;
 
@@ -41,7 +43,6 @@ process.env.GH_REPO = GH_REPO;
 const MAX_TURNS = 80;
 
 const TASK_COMPLETE_MARKER = 'TASK_COMPLETE.json';
-const VIDEO_DONE_PATTERN = /^video_.*_done\.json$/;
 
 // ---------------------------------------------------------------------------
 // الأداة الوحيدة: تنفيذ أمر شل حقيقي
@@ -83,114 +84,13 @@ const functionDeclarations = [
 ];
 
 // ---------------------------------------------------------------------------
-// حراسة خفيفة لمنع الاختلاق — بعد كل أمر terminal، لو الأمر كتب ملف scene*.html
-// نتأكد إن فيه نص عربي حقيقي جواه (مش تحقق مطلق، تحذير بس)
+// فحص بسيط جدًا: هل ملف إنهاء المهمة موجود؟ كل حاجة تانية (التحقق من صحة
+// scene.html، تتبّع كل فيديو خلص، الالتزام بالـ Reflexion) بقت مسؤولية
+// الـ Agent نفسه بالكامل، حسب التعليمات المكتوبة في AGENTS.md — مفيش أي
+// كود هنا بيراقبها أو بيفرضها.
 // ---------------------------------------------------------------------------
-function extractWrittenSceneFiles(command) {
-  const matches = [...command.matchAll(/([a-zA-Z0-9_./-]*scene[a-zA-Z0-9_./-]*\.html)/g)];
-  return [...new Set(matches.map((m) => m[1]))];
-}
-
-function longestArabicRun(text) {
-  const matches = text.match(/[\u0600-\u06FF]+/g) || [];
-  return matches.reduce((max, m) => Math.max(max, m.length), 0);
-}
-
-function lightSanityCheck(command, result) {
-  if (!result.success) return null;
-  const files = extractWrittenSceneFiles(command);
-  for (const f of files) {
-    const fullPath = path.join(WORK_DIR, f);
-    if (!fs.existsSync(fullPath)) continue;
-    const content = fs.readFileSync(fullPath, 'utf-8');
-    // بنشيل تاجات الـ HTML (زي <span> منفصلة لكل حرف/كلمة لأنيميشن) قبل الفحص،
-    // عشان النص الحقيقي المقسّم بصريًا لا يُعاقَب وكأنه غير موجود.
-    const strippedTags = content.replace(/<[^>]+>/g, '');
-    const runLen = longestArabicRun(strippedTags);
-    const totalArabicChars = (strippedTags.match(/[\u0600-\u06FF]/g) || []).length;
-    // معيار مزدوج: إما متتالية طويلة (كلمة/آية بدون تقطيع)، أو كتلة إجمالية
-    // كافية من الحروف العربية حتى لو مقسّمة على كلمات/عناصر منفصلة بمسافات حقيقية.
-    if (runLen < 10 && totalArabicChars < 40) {
-      return `${f} مفيهوش نص عربي حقيقي كافٍ — أطول متتالية حروف عربية متصلة موجودة ` +
-        `دلوقتي طولها ${runLen} حرف بس (المطلوب 10+)، وإجمالي الحروف العربية في الملف ` +
-        `${totalArabicChars} حرف بس (المطلوب 40+ كحد أدنى بديل). ده معناه على الأغلب إن ` +
-        `النص الحقيقي اللي جبته بـ curl مكتبش فعليًا جوه الملف، أو اتقطّع لحروف منفصلة ` +
-        `كل واحد جوه عنصر بعيد عن التاني بمسافات/تاجات كتير. ممنوع تعتبر الفيديو ده جاهز ` +
-        `أو ترفعه، صحّح نفس الملف وأعد الرندر.`;
-    }
-    if (!content.includes('mediabunny')) {
-      return `${f} مفيهوش استيراد Mediabunny — راجع العقد التقني في AGENTS.md وصحّح نفس الملف.`;
-    }
-  }
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// فحص إلزامي: قبل ما نقبل ملف "video_<رقم>_done.json"، نتأكد إن الملفات اللي
-// بيشير لها (release_video_url / release_md_url) موجودة فعليًا كـ assets على
-// الـ Release — مش بس أسماء URL اتكتبت بافتراض إن الرفع نجح.
-// ---------------------------------------------------------------------------
-function extractWrittenDoneFiles(command) {
-  const matches = [...command.matchAll(/([a-zA-Z0-9_./-]*video_[a-zA-Z0-9_.-]*_done\.json)/g)];
-  return [...new Set(matches.map((m) => m[1]))];
-}
-
-function verifyMarkerUploads(command, result) {
-  if (!result.success) return null;
-  const files = extractWrittenDoneFiles(command);
-  for (const f of files) {
-    const fullPath = path.join(WORK_DIR, f);
-    if (!fs.existsSync(fullPath)) continue;
-
-    let data;
-    try {
-      data = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
-    } catch (e) {
-      return `${f} مش JSON صالح — لازم يحتوي release_video_url و release_md_url حقيقيين.`;
-    }
-    const urls = [data.release_video_url, data.release_md_url].filter(Boolean);
-    if (urls.length < 2) {
-      return `${f} ناقصه release_video_url أو release_md_url — لازم الاتنين موجودين قبل ما تعتبر الفيديو خلص.`;
-    }
-
-    let assetNames;
-    try {
-      const out = execSync(`gh release view ${RELEASE_TAG} --repo ${GH_REPO} --json assets`, {
-        env: process.env,
-      }).toString();
-      assetNames = JSON.parse(out).assets.map((a) => a.name);
-    } catch (e) {
-      return `${f}: فشل التحقق من أصول الـ Release "${RELEASE_TAG}" عبر gh release view (${String(e.message || e).slice(0, 200)}). ` +
-        `لازم ترفع الملفين فعليًا بأمر "gh release upload ${RELEASE_TAG} <path> --repo ${GH_REPO}" قبل ما تكتب ملف العلامة ده.`;
-    }
-    for (const url of urls) {
-      const name = decodeURIComponent(url.split('/').pop() || '');
-      if (!name || !assetNames.includes(name)) {
-        return `${f} بيشير لملف "${name || url}" لكنه مش موجود فعليًا كـ asset على الـ Release "${RELEASE_TAG}" ` +
-          `(الموجود حاليًا: ${assetNames.join(', ') || 'لا شيء'}). لازم ترفعه فعليًا أولًا بـ: ` +
-          `gh release upload ${RELEASE_TAG} <المسار المحلي للملف> --repo ${GH_REPO} — ثم أعد كتابة ملف العلامة.`;
-      }
-    }
-  }
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// مراقبة ملفات العلامة (بدل أدوات submit_plan/reflect/mark_video_done القديمة)
-// ---------------------------------------------------------------------------
-const seenVideoDoneFiles = new Set();
-
-function checkMarkerFiles() {
-  const entries = fs.readdirSync(WORK_DIR);
-  const newVideoDone = [];
-  for (const entry of entries) {
-    if (VIDEO_DONE_PATTERN.test(entry) && !seenVideoDoneFiles.has(entry)) {
-      seenVideoDoneFiles.add(entry);
-      newVideoDone.push(entry);
-    }
-  }
-  const taskComplete = entries.includes(TASK_COMPLETE_MARKER);
-  return { newVideoDone, taskComplete };
+function isTaskComplete() {
+  return fs.existsSync(path.join(WORK_DIR, TASK_COMPLETE_MARKER));
 }
 
 // ---------------------------------------------------------------------------
@@ -278,8 +178,9 @@ run_terminal(command) — ده كل اللي عندك. مفيش أي أداة ت
 
 **مهم جدًا**: لو أي أمر terminal فشل (زي مشكلة quoting في heredoc)، **صحّح نفس المشكلة
 بدقة وأعد المحاولة** — ممنوع منعًا باتًا تستبدل المحتوى بنسخة مبسّطة أو منقوصة عشان
-"تتجنب" الخطأ. أي مشهد بينقصه نص الآية الحقيقي أو الهوية البصرية أو الخلفية هيترفض
-تلقائيًا من فحص السلامة، وهيوقف تنفيذك لحد ما تصلّحه.
+"تتجنب" الخطأ. **مفيش أي فحص سلامة تلقائي بالكود هيرفض المشهد بدالك** — إنت المسؤول
+الوحيد عن التأكد بنفسك إن scene.html فيه نص الآية الحقيقي والهوية البصرية والخلفية
+قبل ما تعتبره جاهز، حسب القواعد المكتوبة في AGENTS.md.
 
 # معمارية تفكيرك — إلزامية
 1. **Plan-and-Solve**: أول رد منك في المهمة لازم يكون **نص عادي** (من غير أي استدعاء run_terminal)
@@ -290,7 +191,9 @@ run_terminal(command) — ده كل اللي عندك. مفيش أي أداة ت
    cat > video_<رقم السورة>_done.json << 'EOF'
    {"surah": <رقم>, "release_video_url": "...", "release_md_url": "..."}
    EOF
-   بعد ما تعمل كده هطلب منك تعمل Reflexion (مراجعة ذاتية نصية) قبل ما تكمل — التزم بيها.
+   **بعد ما تكتب ملف العلامة ده، إنت المسؤول بنفسك (من غير ما حد يطلب منك) عن كتابة
+   رد نصي عادي (Reflexion) يقيّم اللي حصل قبل ما تكمل لأي فيديو تاني** — مفيش كود
+   بيراقب ده أو بيجبرك عليه، الالتزام بالقاعدة دي بالكامل مسؤوليتك.
 4. **علامة انتهاء المهمة كاملة**: لما كل الفيديوهات المطلوبة تخلص، اكتب:
    cat > TASK_COMPLETE.json << 'EOF'
    {"summary": "...", "videos": [...]}
@@ -343,12 +246,6 @@ async function runAgentLoop() {
         result = { success: false, error: 'لازم تكتب خطتك الكاملة كنص عادي الأول قبل أي أمر terminal.' };
       } else {
         result = await runTerminal(fc.args || {});
-        const problem = lightSanityCheck(fc.args.command || '', result) ||
-          verifyMarkerUploads(fc.args.command || '', result);
-        if (problem) {
-          result.success = false;
-          result.error = 'فشل فحص السلامة (إلزامي): ' + problem;
-        }
       }
 
       log(`نتيجة: ${JSON.stringify(result).slice(0, 400)}`);
@@ -356,17 +253,9 @@ async function runAgentLoop() {
     }
     contents.push({ role: 'user', parts: functionResponses });
 
-    // مراقبة ملفات العلامة بعد كل دورة
-    const { newVideoDone, taskComplete: done } = checkMarkerFiles();
-    for (const f of newVideoDone) {
-      log(`فيديو خلص: ${f}`);
-      contents.push({
-        role: 'user',
-        parts: [{ text: `لاحظت إنك خلصت فيديو (${f}). قبل ما تكمل، لازم تعمل Reflexion الأول: اكتب رد نصي عادي (من غير أي أداة) يقيّم اللي حصل ويقول هل في حاجة تتعدل في الخطوات الجاية.` }],
-      });
-      hasPlanned = false; // نجبره يرد بنص (مراجعة) قبل أي أمر تاني
-    }
-    if (done) {
+    // فحص بسيط بعد كل دورة: هل ملف إنهاء المهمة ظهر؟ (تتبّع كل فيديو ومراجعته
+    // الذاتية بقت مسؤولية الـ Agent نفسه حسب AGENTS.md، مش كود هنا)
+    if (isTaskComplete()) {
       const raw = fs.readFileSync(path.join(WORK_DIR, TASK_COMPLETE_MARKER), 'utf-8');
       finalPayload = JSON.parse(raw);
       taskComplete = true;
@@ -381,25 +270,6 @@ async function runAgentLoop() {
 }
 
 async function main() {
-  // -------------------------------------------------------------------------
-  // حارس حاسم: منع استدعاء agent.js لنفسه بشكل متداخل من جوه run_terminal.
-  // لو الـ AI (غلط أو عن قصد) نفّذ "node agent.js" كأمر terminal من جوه جلسته،
-  // ده كان بيولّد جلسة Agent كاملة تانية (Release جديد + runAgentLoop من الصفر)
-  // على نفس القرص، وملفات العلامة (video_*_done.json / TASK_COMPLETE.json) اللي
-  // بتكتبها الجلسة الداخلية كانت بتخدع الجلسة الخارجية إنها هي اللي خلصت —
-  // فيديو مختلف تمامًا (سورة عشوائية تانية) بيتسلّم على إنه نتيجة المهمة الأصلية،
-  // من غير أي تحذير. الحارس ده بيمنع السيناريو ده تمامًا من الجذر.
-  if (process.env.OFOQ_AGENT_RUNNING) {
-    console.error(
-      'خطأ فادح: تم اكتشاف استدعاء متداخل لـ agent.js من جوه جلسة تشغيل حالية بالفعل. ' +
-      'ممنوع تمامًا تنفيذ "node agent.js" كأمر terminal من جوه نفسك — دي مش أداة رندر، ' +
-      'ده نفس العقل اللي بيكلمك دلوقتي وهيبدأ جلسة تانية من الصفر فوق نفس القرص. ' +
-      'الرندر لازم يكون سكريبت Node.js منفصل تكتبه إنت بنفسك وتشغّله بـ "node اسم-السكريبت.js".'
-    );
-    process.exit(1);
-  }
-  process.env.OFOQ_AGENT_RUNNING = '1';
-
   if (!GEMINI_API_KEY) {
     console.error('GEMINI_API_KEY غير موجود في متغيرات البيئة. أوقف التنفيذ.');
     process.exit(1);
