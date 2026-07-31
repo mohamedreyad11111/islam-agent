@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Clip — القرآن الكريم (فيديو شورتس عمودي 9:16)</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Reem+Kufi:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #0f0f11; color: #111111;
+            font-family: 'Amiri', -apple-system, BlinkMacSystemFont, 'SF Pro Display', serif;
+            display: flex; align-items: center; justify-content: center;
+            height: 100vh; width: 100vw; overflow: hidden;
+        }
+        #viewport { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 2vh; }
+        canvas {
+            background: #faf7f2; box-shadow: 0 0 80px rgba(0, 0, 0, 0.4);
+            border-radius: 16px; border: 1px solid #dcdcdc;
+            max-width: 100%; max-height: 86vh; width: auto; height: auto;
+            aspect-ratio: 9 / 16; object-fit: contain;
+        }
+        #hud {
+            position: absolute; top: 3vh; right: 4vw;
+            background: rgba(255, 255, 255, 0.95); border: 1px solid #dcdcdc; border-radius: 999px;
+            padding: 1.2vh 2.5vw; display: flex; align-items: center; gap: 12px;
+            font-size: 14px; font-weight: 600; color: #111; backdrop-filter: blur(12px); z-index: 100;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .spinner { width: 18px; height: 18px; border: 2px solid #111; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #controls-overlay {
+            position: absolute; bottom: 3vh; display: flex; gap: 12px; z-index: 100;
+            background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(0, 0, 0, 0.15);
+            padding: 1.2vh 2vw; border-radius: 999px; backdrop-filter: blur(10px);
+            max-width: 92vw; flex-wrap: wrap; justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .btn {
+            background: none; border: none; color: #111;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px; font-weight: 600; cursor: pointer; padding: 8px 18px; border-radius: 999px;
+            display: flex; align-items: center; gap: 6px; transition: all 0.3s ease;
+        }
+        .btn-preview { background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); }
+        .btn-preview:hover { background: rgba(0, 0, 0, 0.1); }
+        .btn-render { background: #2c1d11; color: #ffffff; border: 1px solid #2c1d11; }
+        .btn-render:hover { background: #422d1c; }
+
+        #console-modal {
+            display: none; position: fixed; top: 8vh; left: 8vw; width: 84vw; height: 75vh;
+            background: rgba(10, 10, 12, 0.96); border: 1px solid #333; border-radius: 16px;
+            z-index: 999; color: #00ff66; font-family: monospace; padding: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8); backdrop-filter: blur(16px);
+            flex-direction: column; gap: 12px;
+        }
+        #console-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #222; padding-bottom: 10px; color: #fff; font-size: 15px; font-weight: bold;
+        }
+        #console-output {
+            flex: 1; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+            font-size: 13px; line-height: 1.6; padding-right: 5px;
+        }
+        .log-line { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 2px; }
+        .log-info { color: #00ff66; }
+        .log-warn { color: #ffcc00; }
+        .log-error { color: #ff5555; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="viewport">
+        <canvas id="shortsCanvas" width="1080" height="1920"></canvas>
+        <div id="hud"><div class="spinner" id="spinner"></div><span id="status-text">جاري تحضير فيديو الشورتس العمودي...</span></div>
+        <div id="controls-overlay">
+            <button class="btn btn-preview" id="btn-replay"><i class="ph ph-arrow-counter-clockwise"></i> تشغيل المعاينة</button>
+            <button class="btn btn-preview" id="btn-toggle-console"><i class="ph ph-terminal-window"></i> سجل الأخطاء</button>
+            <button class="btn btn-render" id="btn-render-start"><i class="ph-fill ph-video-camera"></i> تصدير Shorts (MP4 + صوت)</button>
+        </div>
+    </div>
+
+    <div id="console-modal">
+        <div id="console-header">
+            <span><i class="ph ph-terminal-window"></i> سجل النظام والأخطاء</span>
+            <button class="btn btn-preview" id="btn-close-console" style="color:#fff; background:#ff4444; border:none; padding:4px 14px;">إغلاق</button>
+        </div>
+        <div id="console-output"></div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "mediabunny": "https://esm.sh/mediabunny@1.50.8"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import { Output, Mp4OutputFormat, WebMOutputFormat, BufferTarget, CanvasSource, AudioBufferSource, QUALITY_HIGH, canEncodeAudio } from 'mediabunny';
+
+        // --- 1. CONFIG & PALETTE (Vertical Shorts 1080x1920) ---
+        let CONFIG = { fps: 60, width: 1080, height: 1920, duration: 35.0, outputName: 'Quran_Shorts_Ash_Sharh' };
+        const QURAN_FONT = "'Amiri', serif";
+        const HEADER_FONT = "'Reem Kufi', sans-serif";
+
+        const PALETTE = {
+            bgTop: "#FAF7F2",       // Warm Parchment
+            bgBottom: "#EFE8DC",    // Soft Sand / Light Beige
+            textPrimary: "#2C1D11", // Deep Espresso Brown
+            textMuted: "#6B5343",   // Warm Terracotta / Walnut Brown
+            accentGold: "#C08A3E",  // Warm Quranic Ochre Gold
+            lineBorder: "rgba(192, 138, 62, 0.25)"
+        };
+
+        const Easing = {
+            linear: t => t,
+            easeOutCubic: t => 1 - Math.pow(1 - t, 3),
+            easeInOutCubic: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+        };
+
+        // Verses Text with Tafseer Al-Muyassar (سورة الشرح مع التفسير الميسر)
+        const SURAH_VERSES = [
+            {
+                text: "أَلَمْ نَشْرَحْ لَكَ صَدْرَكَ ۝١",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "ألم نوسّع لك -أيها النبي- صدرك لشرائع الدين والدعوة إلى الله؟"
+            },
+            {
+                text: "وَوَضَعْنَا عَنكَ وِزْرَكَ ۝٢",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "وحططنا عنك حملك الثقيل من الذنوب والهموم؟"
+            },
+            {
+                text: "الَّذِي أَنقَضَ ظَهْرَكَ ۝٣",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "الذي أثقل ظهرك حتى كاد أن يكسره؟"
+            },
+            {
+                text: "وَرَفَعْنَا لَكَ ذِكْرَكَ ۝٤",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "وجعلنا لك المكانة العالية والذكر الشريف في الدنيا والآخرة؟"
+            },
+            {
+                text: "فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝٥",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "فلا يحزنك كيدهم، فإن مع المشقة والشدة فرجًا ويسرًا."
+            },
+            {
+                text: "إِنَّ مَعَ الْعُسْرِ يُسْرًا ۝٦",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "إن مع الشدة والضيق فرجًا وسعة ولينًا."
+            },
+            {
+                text: "فَإِذَا فَرَغْتَ فَانصَبْ ۝٧",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "فإذا فرغت من أمور الدنيا وشواغلها، فاجتهد في العبادة والدعاء."
+            },
+            {
+                text: "وَإِلَىٰ رَبِّكَ فَارْغَب ۝٨",
+                surah: "سُورَةُ الشَّرْحِ",
+                tafseer: "وإلى ربك وحده فاجعل رغبتك وتوكلك ودعاءك."
+            }
+        ];
+
+        // --- 2. STATE & CANVAS ---
+        const canvas = document.getElementById('shortsCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const statusText = document.getElementById('status-text');
+        const spinner = document.getElementById('spinner');
+
+        let audioBuffer = null;
+        let audioAudioEl = null;
+        let parsedScenes = [];
+        let RAW_CUES = [];
+        let state = { currentTime: 0, isRendering: false, animationFrameId: null };
+
+        // ------------------------------------------------------------------
+        // Automated Agent Render Hooks — حالة عامة يقدر أي Agent/Playwright
+        // يقرأها من غير ما يستنى حاجة تانية
+        // ------------------------------------------------------------------
+        window.renderStatus = 'loading';   // 'loading' | 'ready' | 'rendering' | 'completed' | 'error'
+        window.renderProgress = 0.0;       // 0.0 -> 1.0
+
+        function logToConsole(msg, type = 'info') {
+            const output = document.getElementById('console-output');
+            const line = document.createElement('div');
+            line.className = `log-line log-${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clamp01(val) { return Math.max(0, Math.min(1, val)); }
+
+        // --- 3. RTL WORD WRAP OPTIMIZED FOR VERTICAL SHORTS (1080px Width) ---
+        function layoutArabicParagraph(text, font, maxWidth, wordGap, lineHeight, centerY) {
+            ctx.font = font;
+            const words = text.split(' ');
+            const lines = [];
+            let currentWords = [], currentWidth = 0;
+
+            words.forEach(w => {
+                const wordWidth = ctx.measureText(w).width;
+                const testWidth = currentWidth + (currentWords.length > 0 ? wordGap : 0) + wordWidth;
+                if (testWidth > maxWidth && currentWords.length > 0) {
+                    lines.push({ words: currentWords, width: currentWidth });
+                    currentWords = []; currentWidth = 0;
+                }
+                currentWords.push({ text: w, width: wordWidth });
+                currentWidth += (currentWords.length > 1 ? wordGap : 0) + wordWidth;
+            });
+            if (currentWords.length) lines.push({ words: currentWords, width: currentWidth });
+
+            const totalHeight = lines.length * lineHeight;
+            const startY = centerY - totalHeight / 2 + lineHeight / 2;
+            const flatWords = [];
+
+            lines.forEach((line, li) => {
+                const lineY = startY + li * lineHeight;
+                let currentX = (CONFIG.width / 2) + (line.width / 2);
+                line.words.forEach(w => {
+                    const wx = currentX - w.width;
+                    flatWords.push({ text: w.text, x: wx + w.width / 2, y: lineY });
+                    currentX -= (w.width + wordGap);
+                });
+            });
+            return flatWords;
+        }
+
+        function buildParsedScenes() {
+            parsedScenes = RAW_CUES.map(cue => {
+                // Verse Font & Words Layout (Center Y = 900px for Shorts)
+                const verseFontSize = cue.text.length > 40 ? 68 : 78;
+                const verseFont = `700 ${verseFontSize}px ${QURAN_FONT}`;
+                const words = layoutArabicParagraph(cue.text, verseFont, 920, 20, verseFontSize * 1.5, CONFIG.height / 2 - 60);
+
+                // Tafseer Font & Words Layout (Bottom Y = 1600px for Shorts)
+                const tafseerFont = `700 34px ${QURAN_FONT}`;
+                const tafseerWords = layoutArabicParagraph(cue.tafseer, tafseerFont, 880, 14, 52, CONFIG.height - 320);
+
+                return { ...cue, font: verseFont, fontSize: verseFontSize, words, tafseerFont, tafseerWords };
+            });
+        }
+
+        // --- 4. EVERYAYAH.COM AUDIO INTEGRATION & WAV ENCODER ---
+        function audioBufferToWavBlob(buffer) {
+            const numOfChan = buffer.numberOfChannels;
+            const length = buffer.length * numOfChan * 2 + 44;
+            const out = new DataView(new ArrayBuffer(length));
+            let channels = [], sample, offset = 0, pos = 0;
+
+            function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+
+            setUint32(0x46464952); // "RIFF"
+            setUint32(length - 8);
+            setUint32(0x45564157); // "WAVE"
+            setUint32(0x20746d66); // "fmt "
+            setUint32(16);         // length
+            setUint16(1);          // PCM
+            setUint16(numOfChan);
+            setUint32(buffer.sampleRate);
+            setUint32(buffer.sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2);
+            setUint16(16);         // 16-bit
+            setUint32(0x61746164); // "data"
+            setUint32(length - pos - 4);
+
+            for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+
+            while (offset < buffer.length) {
+                for (let i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+                    out.setInt16(pos, sample, true);
+                    pos += 2;
+                }
+                offset++;
+            }
+
+            return new Blob([out], { type: "audio/wav" });
+        }
+
+        async function preloadEveryAyahQuranAudio() {
+            logToConsole("جاري تحميل صوت آيات سورة الشرح آية بآية من EveryAyah.com (تلاوة الشيخ مشاري العفاسي)...");
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const ayahBuffers = [];
+            let totalSamples = 0;
+
+            for (let i = 1; i <= 8; i++) {
+                const ayahNum = String(i).padStart(3, '0');
+                const url = `https://www.everyayah.com/data/Alafasy_128kbps/094${ayahNum}.mp3`;
+                try {
+                    const res = await fetch(url);
+                    const arrayBuf = await res.arrayBuffer();
+                    const decodedBuf = await audioCtx.decodeAudioData(arrayBuf);
+                    ayahBuffers.push(decodedBuf);
+                    totalSamples += decodedBuf.length;
+                    logToConsole(`تم تحميل الآية ${i} بنجاح ✓`);
+                } catch (err) {
+                    logToConsole(`تنبيه تحميل الآية ${i}: ${err.message}`, 'warn');
+                }
+            }
+
+            if (ayahBuffers.length === 0) throw new Error("تعذر جلب ملفات الصوت من EveryAyah");
+
+            // Stitch all decoded Ayah buffers together into one continuous AudioBuffer
+            const sampleRate = ayahBuffers[0].sampleRate;
+            const channelsCount = ayahBuffers[0].numberOfChannels;
+            audioBuffer = audioCtx.createBuffer(channelsCount, totalSamples, sampleRate);
+
+            let sampleOffset = 0;
+            let timeOffset = 0.0;
+            RAW_CUES = [];
+
+            for (let i = 0; i < ayahBuffers.length; i++) {
+                const buf = ayahBuffers[i];
+                for (let ch = 0; ch < channelsCount; ch++) {
+                    audioBuffer.getChannelData(ch).set(buf.getChannelData(ch), sampleOffset);
+                }
+
+                const duration = buf.duration;
+                RAW_CUES.push({
+                    id: i + 1,
+                    start: timeOffset,
+                    end: timeOffset + duration,
+                    text: SURAH_VERSES[i].text,
+                    surah: SURAH_VERSES[i].surah,
+                    tafseer: SURAH_VERSES[i].tafseer
+                });
+
+                sampleOffset += buf.length;
+                timeOffset += duration;
+            }
+
+            CONFIG.duration = audioBuffer.duration;
+
+            // Generate WAV Blob for preview playback
+            const wavBlob = audioBufferToWavBlob(audioBuffer);
+            const blobUrl = URL.createObjectURL(wavBlob);
+            audioAudioEl = new Audio(blobUrl);
+
+            logToConsole(`تم دمج تلاوة الآيات بنجاح! مدة الشورتس: ${CONFIG.duration.toFixed(2)} ثانية ✓`);
+        }
+
+        // --- 5. DRAWING HELPERS FOR SHORTS (1080x1920) ---
+        function drawGlobalBackground() {
+            const grad = ctx.createLinearGradient(0, 0, 0, CONFIG.height);
+            grad.addColorStop(0, PALETTE.bgTop);
+            grad.addColorStop(1, PALETTE.bgBottom);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+
+            // Subtle Outer Gold Border for Vertical Frame
+            ctx.strokeStyle = PALETTE.lineBorder;
+            ctx.lineWidth = 4;
+            ctx.strokeRect(40, 40, CONFIG.width - 80, CONFIG.height - 80);
+        }
+
+        function drawSurahHeader(surahName) {
+            ctx.save();
+            const headerY = 220; // Top Y position for Vertical Shorts
+
+            ctx.strokeStyle = PALETTE.accentGold;
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.width / 2 - 240, headerY);
+            ctx.lineTo(CONFIG.width / 2 - 120, headerY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.width / 2 + 120, headerY);
+            ctx.lineTo(CONFIG.width / 2 + 240, headerY);
+            ctx.stroke();
+
+            ctx.fillStyle = PALETTE.accentGold;
+            ctx.beginPath(); ctx.arc(CONFIG.width / 2 - 110, headerY, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(CONFIG.width / 2 + 110, headerY, 6, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = PALETTE.textPrimary;
+            ctx.font = `700 42px ${HEADER_FONT}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(surahName, CONFIG.width / 2, headerY);
+
+            ctx.restore();
+        }
+
+        // 5.1 Cardless Staggered Text Reveal Scene for Main Verse
+        function drawQuranVerseScene(scene, sceneProgress) {
+            const STAGGER_RATIO = 0.07;
+            const WORD_ANIM_DURATION = 0.45;
+            const SLIDE_DISTANCE = 25;
+
+            ctx.save();
+            ctx.font = scene.font;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            scene.words.forEach((w, i) => {
+                const wordStart = i * STAGGER_RATIO;
+                const wordT = clamp01((sceneProgress - wordStart) / WORD_ANIM_DURATION);
+                if (wordT <= 0) return;
+
+                const eased = Easing.easeOutCubic(wordT);
+                const isVerseMarker = w.text.includes("۝");
+
+                ctx.save();
+                ctx.globalAlpha = eased;
+
+                if (isVerseMarker) {
+                    ctx.fillStyle = PALETTE.accentGold;
+                } else {
+                    ctx.fillStyle = PALETTE.textPrimary;
+                }
+
+                ctx.fillText(w.text, w.x, w.y + (1 - eased) * SLIDE_DISTANCE);
+                ctx.restore();
+            });
+            ctx.restore();
+        }
+
+        // 5.2 Tafseer Al-Muyassar Bottom Section Renderer (Vertical Shorts Position Y = 1600px)
+        function drawTafseerSection(scene, sceneProgress) {
+            if (!scene.tafseerWords) return;
+
+            const bottomY = CONFIG.height - 320;
+
+            ctx.save();
+            // Separator Line
+            ctx.strokeStyle = PALETTE.lineBorder;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.width / 2 - 200, bottomY - 35);
+            ctx.lineTo(CONFIG.width / 2 + 200, bottomY - 35);
+            ctx.stroke();
+
+            // Badge Header ﴿ التَّفْسِيرُ المُمَيَّسَرُ ﴾
+            ctx.fillStyle = PALETTE.accentGold;
+            ctx.font = `700 24px ${HEADER_FONT}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("﴿ التَّفْسِيرُ المُمَيَّسَرُ ﴾", CONFIG.width / 2, bottomY - 35);
+
+            // Tafseer Text Fade In
+            const alpha = Easing.easeOutCubic(clamp01(sceneProgress / 0.3));
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = PALETTE.textMuted;
+            ctx.font = scene.tafseerFont;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            scene.tafseerWords.forEach(w => {
+                ctx.fillText(w.text, w.x, w.y);
+            });
+
+            ctx.restore();
+        }
+
+        // --- 6. CENTRAL DRAW ROUTER ---
+        function drawSceneAtTime(time) {
+            state.currentTime = time;
+            drawGlobalBackground();
+
+            if (parsedScenes.length === 0) return;
+            const scene = parsedScenes.find(s => time >= s.start && time <= s.end) || parsedScenes[parsedScenes.length - 1];
+            const progress = clamp01((time - scene.start) / (scene.end - scene.start));
+
+            drawSurahHeader(scene.surah);
+            drawQuranVerseScene(scene, progress);
+            drawTafseerSection(scene, progress);
+        }
+
+        // --- 7. PREVIEW LOOP ---
+        function startPreviewLoop() {
+            if (state.animationFrameId) cancelAnimationFrame(state.animationFrameId);
+            if (audioAudioEl) {
+                audioAudioEl.currentTime = 0;
+                audioAudioEl.play().catch(e => logToConsole("تنبيه الصوت: " + e.message, 'warn'));
+            }
+
+            function loop() {
+                if (state.isRendering) return;
+                const currTime = audioAudioEl ? audioAudioEl.currentTime : state.currentTime;
+                drawSceneAtTime(currTime);
+
+                if (currTime < CONFIG.duration) {
+                    state.animationFrameId = requestAnimationFrame(loop);
+                } else {
+                    statusText.textContent = "جاهز للعرض والتصدير ✓";
+                    spinner.style.display = 'none';
+                }
+            }
+            state.animationFrameId = requestAnimationFrame(loop);
+        }
+
+        // --- 8. EXPORT PIPELINE (mediabunny) ---
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
+        }
+
+        async function ensureAacEncoderAvailable() {
+            if (!(await canEncodeAudio('aac'))) {
+                logToConsole("تسجيل AAC Polyfill للأنظمة غير المدعومة أصليًا...");
+                const { registerAacEncoder } = await import('@mediabunny/aac-encoder');
+                registerAacEncoder();
+            }
+        }
+
+        function getAudioConfigForContainer(container) {
+            if (container === 'webm') return { codec: 'opus', bitrate: 128_000 };
+            return { codec: 'aac', bitrate: QUALITY_HIGH };
+        }
+
+        async function attemptRealExport(attempt, totalFrames, fps) {
+            const format = attempt.container === 'webm' ? new WebMOutputFormat() : new Mp4OutputFormat();
+            const output = new Output({ format, target: new BufferTarget() });
+            const videoSource = new CanvasSource(canvas, attempt);
+            const audioSource = new AudioBufferSource(getAudioConfigForContainer(attempt.container));
+
+            output.addVideoTrack(videoSource, { frameRate: fps });
+            output.addAudioTrack(audioSource);
+
+            await output.start();
+            if (audioBuffer) await audioSource.add(audioBuffer);
+            audioSource.close();
+
+            const frameDuration = 1 / fps;
+            for (let i = 0; i < totalFrames; i++) {
+                const timestamp = i / fps;
+                drawSceneAtTime(timestamp);
+                await videoSource.add(timestamp, frameDuration);
+                window.renderProgress = (i + 1) / totalFrames;
+            }
+            videoSource.close();
+            await output.finalize();
+            return output.target.buffer;
+        }
+
+        async function exportWithFallback() {
+            state.isRendering = true;
+            window.renderStatus = 'rendering';
+            window.renderProgress = 0.0;
+            if (state.animationFrameId) cancelAnimationFrame(state.animationFrameId);
+            if (audioAudioEl) audioAudioEl.pause();
+
+            spinner.style.display = 'inline-block';
+            statusText.textContent = "جاري تصدير فيديو الشورتس فريم فريم...";
+            logToConsole("بدء عملية التصدير لمكافئ MP4 (Shorts 1080x1920) + صوت...");
+
+            await ensureAacEncoderAvailable();
+
+            const videoAttempts = [
+                { codec: 'avc', bitrate: QUALITY_HIGH, container: 'mp4' },
+                { codec: 'avc', bitrate: 3_500_000, container: 'mp4' },
+                { codec: 'avc', fullCodecString: 'avc1.42001f', bitrate: 3_000_000, container: 'mp4' },
+                { codec: 'vp9', bitrate: 4_000_000, container: 'webm' },
+                { codec: 'vp8', bitrate: 3_000_000, container: 'webm' }
+            ];
+
+            const totalFrames = Math.ceil(CONFIG.duration * CONFIG.fps);
+
+            for (const attempt of videoAttempts) {
+                try {
+                    logToConsole(`تجربة التصدير بـ ${attempt.codec} (${attempt.bitrate ? (attempt.bitrate/1e6)+'Mbps' : 'auto'}) داخل حاوية ${attempt.container}...`);
+                    const buffer = await attemptRealExport(attempt, totalFrames, CONFIG.fps);
+                    logToConsole(`تم التصدير بنجاح! نوع الحاوية: ${attempt.container}`);
+
+                    const mimeType = attempt.container === 'webm' ? 'video/webm' : 'video/mp4';
+                    const filename = `${CONFIG.outputName}.${attempt.container}`;
+
+                    // تحميل اختياري للمعاينة اليدوية من إنسان (بيشتغل عادي حتى في وضع Headless)
+                    const blob = new Blob([buffer], { type: mimeType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+
+                    // مخرجات صريحة للـ Agent الآلي: base64 + توافق مع عقد window.__ofoqStatus القديم
+                    const base64 = arrayBufferToBase64(buffer);
+                    window.__ofoqFilename = filename;
+                    window.__ofoqBase64 = base64;
+                    window.__ofoqStatus = 'done';
+
+                    window.renderProgress = 1.0;
+                    window.renderStatus = 'completed';
+                    statusText.textContent = "تم التصدير والتحميل بنجاح ✓";
+                    spinner.style.display = 'none';
+                    state.isRendering = false;
+
+                    const result = { filename, base64, mimeType };
+                    document.dispatchEvent(new CustomEvent('video-render-complete', { detail: result }));
+                    return result;
+                } catch (err) {
+                    logToConsole(`محاولة ${attempt.codec} لم تكتمل: ${err.message}`, 'warn');
+                }
+            }
+
+            const errorMessage = 'كل محاولات التصدير فشلت (mp4/webm بكل الكودرات المتاحة).';
+            window.renderStatus = 'error';
+            window.__ofoqStatus = 'error';
+            window.__ofoqError = errorMessage;
+            statusText.textContent = "فشل التصدير! راجع سجل الأخطاء.";
+            spinner.style.display = 'none';
+            state.isRendering = false;
+            throw new Error(errorMessage);
+        }
+
+        // ------------------------------------------------------------------
+        // window.startVideoRender() — نقطة الدخول الرسمية لأي Agent/Playwright/
+        // Puppeteer. بترجع Promise بيحل بـ { filename, base64, mimeType } لو
+        // نجح، أو يترفض بـ Error لو فشل.
+        // ------------------------------------------------------------------
+        window.startVideoRender = function () {
+            return new Promise((resolve, reject) => {
+                if (window.renderStatus === 'loading') {
+                    reject(new Error('لسه بيحمّل الصوت والبيانات — استنى لحد ما window.renderStatus يبقى ready.'));
+                    return;
+                }
+                if (window.renderStatus === 'rendering') {
+                    reject(new Error('عملية رندر شغالة بالفعل، استنى لحد ما تخلص.'));
+                    return;
+                }
+                exportWithFallback().then(resolve).catch(reject);
+            });
+        };
+
+        // --- 9. INIT & CONTROLS ---
+        document.getElementById('btn-replay').addEventListener('click', () => {
+            statusText.textContent = "جاري عرض المعاينة...";
+            spinner.style.display = 'inline-block';
+            startPreviewLoop();
+        });
+
+        document.getElementById('btn-toggle-console').addEventListener('click', () => {
+            const modal = document.getElementById('console-modal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        document.getElementById('btn-close-console').addEventListener('click', () => {
+            document.getElementById('console-modal').style.display = 'none';
+        });
+
+        document.getElementById('btn-render-start').addEventListener('click', () => {
+            exportWithFallback();
+        });
+
+        async function init() {
+            try {
+                window.renderStatus = 'loading';
+                await preloadEveryAyahQuranAudio();
+                buildParsedScenes();
+                statusText.textContent = "جاهز للعرض والتصدير ✓";
+                spinner.style.display = 'none';
+                drawSceneAtTime(0);
+                window.renderStatus = 'ready';
+
+                // Automated Agent Render Hook عن طريق URL: ?autorender=true
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('autorender') === 'true') {
+                    logToConsole('اكتشاف autorender=true — بدء التصدير التلقائي فورًا من غير انتظار زرار.');
+                    window.startVideoRender().catch(err => {
+                        logToConsole('فشل التصدير التلقائي: ' + err.message, 'error');
+                    });
+                }
+            } catch (err) {
+                window.renderStatus = 'error';
+                logToConsole("خطأ أثناء التهيئة: " + err.message, 'error');
+                statusText.textContent = "حدث خطأ أثناء التحميل";
+            }
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
