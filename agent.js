@@ -48,6 +48,19 @@ const TASK_COMPLETE_MARKER = 'TASK_COMPLETE.json';
 // الأداة الوحيدة: تنفيذ أمر شل حقيقي
 // ---------------------------------------------------------------------------
 async function runTerminal({ command }) {
+  const OUTPUT_LIMIT = 40000; // كان 6000 — ده كان بيقطع ملفات هوية .html كبيرة بصمت
+  const ERROR_LIMIT = 20000;  // كان 3000 — نفس المشكلة لو الفشل نفسه فيه output كبير
+
+  function withTruncationNotice(text, limit) {
+    if (text.length <= limit) return text;
+    return (
+      text.slice(0, limit) +
+      `\n\n...[تنبيه: الناتج اتقطع هنا. الحجم الكلي كان ${text.length} حرف، وده عرض أول ${limit} بس. ` +
+      `لو ده ناتج قراءة ملف، متفترضش إنك شفته كامل — كمّل تقرا الباقي بأمر زي ` +
+      `'tail -c +${limit + 1} <file>' أو 'sed -n "N,Mp" <file>' قبل ما تعتمد على محتواه.]...`
+    );
+  }
+
   try {
     const output = execSync(command, {
       cwd: WORK_DIR,
@@ -56,14 +69,14 @@ async function runTerminal({ command }) {
       maxBuffer: 30 * 1024 * 1024,
       shell: '/bin/bash',
     }).toString();
-    return { success: true, exit_code: 0, output: output.slice(0, 6000) };
+    return { success: true, exit_code: 0, output: withTruncationNotice(output, OUTPUT_LIMIT) };
   } catch (e) {
     return {
       success: false,
       exit_code: e.status ?? null,
       error: e.message,
-      stdout: (e.stdout || '').toString().slice(0, 3000),
-      stderr: (e.stderr || '').toString().slice(0, 3000),
+      stdout: withTruncationNotice((e.stdout || '').toString(), ERROR_LIMIT),
+      stderr: withTruncationNotice((e.stderr || '').toString(), ERROR_LIMIT),
     };
   }
 }
