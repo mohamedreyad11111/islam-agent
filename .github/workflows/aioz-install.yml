@@ -1,0 +1,72 @@
+name: Install AIOZ DePIN CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'AIOZ DePIN CLI version'
+        required: true
+        default: '1.2.6'
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    # Configure a self-hosted runner on the Linux machine where you want AIOZ installed.
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - name: Install system requirements and AIOZ DePIN CLI
+        shell: bash
+        env:
+          AIOZ_VERSION: ${{ inputs.version }}
+        run: |
+          set -Eeuo pipefail
+
+          if [[ "$(uname -s)" != "Linux" || "$(uname -m)" != "x86_64" ]]; then
+            echo "This workflow currently supports Linux x86_64 only." >&2
+            exit 1
+          fi
+
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "This workflow currently expects an Ubuntu/Debian-based Linux system with apt-get." >&2
+            exit 1
+          fi
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates curl tar
+
+          install_dir="$HOME/.local/bin"
+          data_dir="$HOME/aioz-depin-data"
+          config_dir="$HOME/.config/aioz-depin"
+          mkdir -p "$install_dir" "$data_dir" "$config_dir"
+          chmod 700 "$data_dir" "$config_dir"
+
+          archive="aioz-depin-linux-amd64-${AIOZ_VERSION}.tar.gz"
+          url="https://github.com/AIOZNetwork/aioz-depin-cli/releases/download/v${AIOZ_VERSION}/${archive}"
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          curl --fail --location --retry 3 --retry-delay 2 "$url" -o "$tmp_dir/$archive"
+          tar -xzf "$tmp_dir/$archive" -C "$tmp_dir"
+
+          if [[ ! -f "$tmp_dir/aioz-depin-cli-linux-amd64" ]]; then
+            echo "Expected AIOZ executable was not found in the release archive." >&2
+            exit 1
+          fi
+
+          install -m 0755 "$tmp_dir/aioz-depin-cli-linux-amd64" "$install_dir/aioz-depin-cli"
+          echo "$install_dir" >> "$GITHUB_PATH"
+
+          "$install_dir/aioz-depin-cli" version
+          echo "AIOZ DePIN CLI ${AIOZ_VERSION} installed successfully."
+          echo "Binary: $install_dir/aioz-depin-cli"
+          echo "Node data directory prepared: $data_dir"
+          echo "Config directory prepared: $config_dir"
+
+      - name: Show next-step instructions
+        shell: bash
+        run: |
+          echo 'Installation is complete. No wallet key was generated and no node was started.'
+          echo 'Create/use a dedicated AIOZ node key securely, then start the node manually:'
+          echo '$HOME/.local/bin/aioz-depin-cli start --home "$HOME/aioz-depin-data" --priv-key-file /secure/path/privkey.json'
